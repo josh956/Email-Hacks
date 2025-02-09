@@ -22,7 +22,6 @@ st.sidebar.markdown(
     ---
     ### 📌 Understanding the Data:
     - **Breach Date** 📅 → When the breach occurred.  
-    - **Upload Date** 🗂️ → When the breach was publicly disclosed.  
     - **Exposed Rows** 🔢 → Number of records leaked.  
     - **Risk Score** ⚠️  
       - 🟢 **Low** → Less than 10,000 records.  
@@ -79,53 +78,47 @@ if email and "@" in email:
                 return "🟡 Medium"
             return "🟢 Low"
 
-        df["risk_level"] = df["rows"].apply(assign_risk)
+        df["Risk Level"] = df["rows"].apply(assign_risk)
+
+        # Rename headers to user-friendly terms
+        df = df.rename(
+            columns={
+                "name": "Breach Name",
+                "breach_date": "Breach Date",
+                "rows": "Exposed Rows"
+            }
+        )
+
+        # Remove 'Upload Date' column
+        table_data = df[["Breach Name", "Breach Date", "Exposed Rows", "Risk Level"]]
 
         # Search & Filter Option
         search_query = st.text_input("🔍 Search breaches:", placeholder="Type breach name...")
         if search_query:
-            df = df[df["name"].str.contains(search_query, case=False, na=False)]
+            table_data = table_data[table_data["Breach Name"].str.contains(search_query, case=False, na=False)]
 
-        # Display as Table with Sorting
-        st.dataframe(df[["name", "breach_date", "upload_date", "rows", "risk_level"]])
+        # 📊 Layout for Table & Chart
+        col1, col2 = st.columns([4, 3], gap="large")
 
-        # Expanders for Detailed Breach Info
-        for _, breach in df.iterrows():
-            with st.expander(f"📁 {breach['name']}"):
-                st.write(f"**ID**: {breach.get('id', 'N/A')}")
-                st.write(f"**Breach Date**: {breach.get('breach_date', 'N/A')}")
-                st.write(f"**Upload Date**: {breach.get('upload_date', 'N/A')}")
-                st.write(f"**Exposed Rows**: {breach.get('rows', 'N/A')}")
-                st.write(f"**Risk Level**: {breach['risk_level']}")
-                if "summary" in breach:
-                    st.write(f"**Summary**: {breach['summary']}")
-                if "icon" in breach:
-                    st.image(breach['icon'], width=100)
-                st.markdown(f"[🔗 More Info](https://haveibeenpwned.com/{breach['name']})", unsafe_allow_html=True)
+        with col1:
+            st.write("### 📋 Breach Details Table")
+            st.dataframe(table_data)
 
-        # 📊 Breach Trends (New Feature)
-        st.subheader("📊 Breach Trends")
+        with col2:
+            # Bar Chart: Breaches Over Time
+            st.write("### 📊 Breaches by Year")
+            df["Breach Date"] = pd.to_datetime(df["Breach Date"], errors="coerce")
+            df["Year"] = df["Breach Date"].dt.year
+            year_counts = df["Year"].value_counts().sort_index()
 
-        # Bar Chart: Breaches Over Time
-        st.write("**🗓️ Number of Breaches by Year**")
-        df["breach_date"] = pd.to_datetime(df["breach_date"], errors="coerce")
-        df["year"] = df["breach_date"].dt.year
-        year_counts = df["year"].value_counts().sort_index()
-        plt.figure(figsize=(8, 4))
-        plt.bar(year_counts.index, year_counts.values)
-        plt.xlabel("Year")
-        plt.ylabel("Number of Breaches")
-        plt.xticks(rotation=45)
-        plt.grid(axis="y", linestyle="--", alpha=0.7)
-        st.pyplot(plt)
-
-        # Pie Chart: Risk Levels
-        st.write("**⚠️ Breach Severity Breakdown**")
-        risk_counts = df["risk_level"].value_counts()
-        fig, ax = plt.subplots()
-        ax.pie(risk_counts, labels=risk_counts.index, autopct="%1.1f%%", startangle=90, colors=["green", "yellow", "red"])
-        ax.axis("equal")  # Equal aspect ratio ensures pie is circular.
-        st.pyplot(fig)
+            # Plot the bar chart
+            plt.figure(figsize=(8, 6))  # Larger chart
+            plt.bar(year_counts.index, year_counts.values, color="blue")
+            plt.xlabel("Year")
+            plt.ylabel("Number of Breaches")
+            plt.xticks(rotation=45, fontsize=10)
+            plt.grid(axis="y", linestyle="--", alpha=0.7)
+            st.pyplot(plt)
 
         # 📥 Excel Export
         st.subheader("📥 Export Data")
@@ -133,7 +126,7 @@ if email and "@" in email:
         # Convert DataFrame to Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name="Breach Data")
+            table_data.to_excel(writer, index=False, sheet_name="Breach Data")
             writer.close()
 
         st.download_button(
@@ -142,6 +135,18 @@ if email and "@" in email:
             file_name="breaches.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
+        # 🔽 Expandable List of Breaches
+        st.subheader("🔎 Detailed Breach Information")
+        for _, breach in df.iterrows():
+            with st.expander(f"{breach['Breach Name']} - Risk: {breach['Risk Level']}"):
+                st.write(f"**Breach Date**: {breach['Breach Date']}")
+                st.write(f"**Exposed Rows**: {breach['Exposed Rows']}")
+                if "summary" in breach:
+                    st.write(f"**Summary**: {breach['summary']}")
+                if "icon" in breach:
+                    st.image(breach["icon"], width=100)
+
     else:
         st.info("✅ No breaches found for this email.")
 else:
