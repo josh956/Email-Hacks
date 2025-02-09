@@ -35,7 +35,8 @@ st.sidebar.markdown(
 email = st.text_input("📧 Enter your email:", placeholder="your-email@example.com")
 
 # Secure API key from environment variable
-API_KEY = os.getenv("RapidAPI")
+# Retrieve the RapidAPI key from environment variable or Streamlit secrets
+API_KEY = os.getenv("RapidAPI") if os.getenv("RapidAPI") else st.secrets["rapidapi"]["key"]
 API_HOST = "email-breach-search.p.rapidapi.com"
 
 if not API_KEY:
